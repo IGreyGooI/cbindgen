@@ -69,8 +69,8 @@ pub fn expand(
     expand_features: &Option<Vec<String>>,
     profile: Profile,
 ) -> Result<String, Error> {
-    let cargo = env::var("CARGO").unwrap_or_else(|_| String::from("cargo"));
-    let mut cmd = Command::new(cargo);
+    // let cargo = env::var("CARGO").unwrap_or_else(|_| String::from("cargo"));
+    let mut cmd = Command::new("rustup");
 
     let mut _temp_dir = None; // drop guard
     if use_tempdir {
@@ -89,6 +89,10 @@ pub fn expand(
     // Set this variable so that we don't call it recursively if we expand a crate that is using
     // cbindgen
     cmd.env("_CBINDGEN_IS_RUNNING", "1");
+
+    cmd.arg("run");
+    cmd.arg("nightly");
+    cmd.arg("cargo");
 
     cmd.arg("rustc");
     cmd.arg("--lib");
