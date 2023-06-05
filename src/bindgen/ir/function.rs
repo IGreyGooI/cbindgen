@@ -12,8 +12,7 @@ use crate::bindgen::config::{Config, Language, Layout};
 use crate::bindgen::declarationtyperesolver::DeclarationTypeResolver;
 use crate::bindgen::dependencies::Dependencies;
 use crate::bindgen::ir::{
-    AnnotationSet, Cfg, ConditionWrite, Documentation, GenericPath, Path, PrimitiveType,
-    ToCondition, Type,
+    AnnotationSet, Cfg, ConditionWrite, Documentation, GenericPath, Path, ToCondition, Type,
 };
 use crate::bindgen::library::Library;
 use crate::bindgen::monomorph::Monomorphs;
@@ -55,18 +54,7 @@ impl Function {
     ) -> Result<Function, String> {
         let mut args = sig.inputs.iter().try_skip_map(|x| x.as_argument())?;
 
-        let mut never_return = false;
-        let mut ret = match sig.output {
-            syn::ReturnType::Default => Type::Primitive(PrimitiveType::Void),
-            syn::ReturnType::Type(_, ref ty) => {
-                if let syn::Type::Never(_) = ty.as_ref() {
-                    never_return = true;
-                    Type::Primitive(PrimitiveType::Void)
-                } else {
-                    Type::load(ty)?.unwrap_or(Type::Primitive(PrimitiveType::Void))
-                }
-            }
-        };
+        let (mut ret, never_return) = Type::load_from_output(&sig.output)?;
 
         if let Some(self_path) = self_type_path {
             for arg in &mut args {
@@ -86,10 +74,6 @@ impl Function {
             documentation: Documentation::load(attrs),
             never_return,
         })
-    }
-
-    pub(crate) fn never_return(&self, config: &Config) -> bool {
-        self.never_return && config.language != Language::Cython
     }
 
     pub fn swift_name(&self, config: &Config) -> Option<String> {
@@ -258,7 +242,7 @@ impl Source for Function {
                     }
                 }
             }
-            cdecl::write_func(out, func, false, config);
+            cdecl::write_func(out, func, Layout::Horizontal, config);
 
             if !func.extern_decl {
                 if let Some(ref postfix) = postfix {
@@ -269,12 +253,6 @@ impl Source for Function {
             if let Some(ref swift_name_macro) = config.function.swift_name_macro {
                 if let Some(swift_name) = func.swift_name(config) {
                     write!(out, " {}({})", swift_name_macro, swift_name);
-                }
-            }
-
-            if func.never_return(config) {
-                if let Some(ref no_return_attr) = config.function.no_return {
-                    out.write_fmt(format_args!(" {}", no_return_attr));
                 }
             }
 
@@ -307,7 +285,7 @@ impl Source for Function {
                     }
                 }
             }
-            cdecl::write_func(out, func, true, config);
+            cdecl::write_func(out, func, Layout::Vertical, config);
             if !func.extern_decl {
                 if let Some(ref postfix) = postfix {
                     out.new_line();
@@ -321,25 +299,19 @@ impl Source for Function {
                 }
             }
 
-            if func.never_return(config) {
-                if let Some(ref no_return_attr) = config.function.no_return {
-                    out.write_fmt(format_args!(" {}", no_return_attr));
-                }
-            }
-
             out.write(";");
 
             condition.write_after(config, out);
         }
 
-        let option_1 = out.measure(|out| write_1(self, config, out));
-
-        if (config.function.args == Layout::Auto && option_1 <= config.line_length)
-            || config.function.args == Layout::Horizontal
-        {
-            write_1(self, config, out);
-        } else {
-            write_2(self, config, out);
+        match config.function.args {
+            Layout::Horizontal => write_1(self, config, out),
+            Layout::Vertical => write_2(self, config, out),
+            Layout::Auto => {
+                if !out.try_write(|out| write_1(self, config, out), config.line_length) {
+                    write_2(self, config, out)
+                }
+            }
         }
     }
 }

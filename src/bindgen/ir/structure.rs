@@ -205,6 +205,7 @@ impl Struct {
 
     fn emit_bitflags_binop<F: Write>(
         &self,
+        constexpr_prefix: &str,
         operator: char,
         other: &str,
         out: &mut SourceWriter<F>,
@@ -212,7 +213,8 @@ impl Struct {
         out.new_line();
         write!(
             out,
-            "{} operator{}(const {}& {}) const",
+            "{}{} operator{}(const {}& {}) const",
+            constexpr_prefix,
             self.export_name(),
             operator,
             self.export_name(),
@@ -221,8 +223,10 @@ impl Struct {
         out.open_brace();
         write!(
             out,
-            "return {{static_cast<decltype(bits)>(this->bits {} {}.bits)}};",
-            operator, other
+            "return {} {{ static_cast<decltype(bits)>(this->bits {} {}.bits) }};",
+            self.export_name(),
+            operator,
+            other
         );
         out.close_brace(false);
 
@@ -290,10 +294,7 @@ impl Item for Struct {
 
         // Rename the types used in fields
         {
-            let fields = self
-                .fields
-                .iter_mut()
-                .skip(if self.has_tag_field { 1 } else { 0 });
+            let fields = self.fields.iter_mut().skip(self.has_tag_field as usize);
             for field in fields {
                 field.ty.rename_for_config(config, &self.generic_params);
             }
@@ -531,21 +532,35 @@ impl Source for Struct {
                     wrote_start_newline = true;
                     out.new_line();
                 }
+                let constexpr_prefix = if config.constant.allow_constexpr {
+                    "constexpr "
+                } else {
+                    ""
+                };
+
                 out.new_line();
-                write!(out, "explicit operator bool() const");
+                write!(out, "{}explicit operator bool() const", constexpr_prefix);
                 out.open_brace();
                 write!(out, "return !!bits;");
                 out.close_brace(false);
 
                 out.new_line();
-                write!(out, "{} operator~() const", self.export_name());
+                write!(
+                    out,
+                    "{}{} operator~() const",
+                    constexpr_prefix,
+                    self.export_name()
+                );
                 out.open_brace();
-                write!(out, "return {{static_cast<decltype(bits)>(~bits)}};");
+                write!(
+                    out,
+                    "return {} {{ static_cast<decltype(bits)>(~bits) }};",
+                    self.export_name()
+                );
                 out.close_brace(false);
-
-                self.emit_bitflags_binop('|', &other, out);
-                self.emit_bitflags_binop('&', &other, out);
-                self.emit_bitflags_binop('^', &other, out);
+                self.emit_bitflags_binop(constexpr_prefix, '|', &other, out);
+                self.emit_bitflags_binop(constexpr_prefix, '&', &other, out);
+                self.emit_bitflags_binop(constexpr_prefix, '^', &other, out);
             }
 
             // Generate a serializer function that allows dumping this struct
@@ -586,7 +601,7 @@ impl Source for Struct {
                 out.close_brace(false);
             }
 
-            let skip_fields = if self.has_tag_field { 1 } else { 0 };
+            let skip_fields = self.has_tag_field as usize;
 
             macro_rules! emit_op {
                 ($op_name:expr, $op:expr, $conjuc:expr) => {{

@@ -84,7 +84,11 @@ fn load_bindings(input: &Path, matches: &ArgMatches) -> Result<Bindings, Error> 
         // Load any config specified or search in the input directory
         let mut config = match matches.value_of("config") {
             Some(c) => Config::from_file(c).unwrap(),
-            None => Config::from_root_or_default(input),
+            None => Config::from_root_or_default(
+                input
+                    .parent()
+                    .expect("All files should have a parent directory"),
+            ),
         };
 
         apply_config_overrides(&mut config, matches);
@@ -113,7 +117,7 @@ fn load_bindings(input: &Path, matches: &ArgMatches) -> Result<Bindings, Error> 
             let binding_crate_dir = lib.find_crate_dir(&lib.binding_crate_ref());
 
             if let Some(binding_crate_dir) = binding_crate_dir {
-                Config::from_root_or_default(&binding_crate_dir)
+                Config::from_root_or_default(binding_crate_dir)
             } else {
                 // This shouldn't happen
                 Config::from_root_or_default(input)
@@ -157,7 +161,7 @@ fn main() {
                 .long("lang")
                 .value_name("LANGUAGE")
                 .help("Specify the language to output bindings in")
-                .possible_values(&["c++", "C++", "c", "C", "cython", "Cython"]),
+                .possible_values(["c++", "C++", "c", "C", "cython", "Cython"]),
         )
         .arg(
             Arg::new("cpp-compat")
@@ -176,7 +180,7 @@ fn main() {
                 .long("style")
                 .value_name("STYLE")
                 .help("Specify the declaration style to use for bindings")
-                .possible_values(&["Both", "both", "Tag", "tag", "Type", "type"]),
+                .possible_values(["Both", "both", "Tag", "tag", "Type", "type"]),
         )
         .arg(
             Arg::new("d")
@@ -253,7 +257,7 @@ fn main() {
                     "Specify the profile to use when expanding macros. \
                      Has no effect otherwise."
                 )
-                .possible_values(&["Debug", "debug", "Release", "release"]),
+                .possible_values(["Debug", "debug", "Release", "release"]),
         )
         .arg(
             Arg::new("quiet")
@@ -261,6 +265,20 @@ fn main() {
                 .long("quiet")
                 .help("Report errors only (overrides verbosity options).")
                 .required(false),
+        )
+        .arg(
+            Arg::new("depfile")
+                .value_name("PATH")
+                .long("depfile")
+                .takes_value(true)
+                .min_values(1)
+                .max_values(1)
+                .required(false)
+                .help("Generate a depfile at the given Path listing the source files \
+                    cbindgen traversed when generating the bindings. Useful when \
+                    integrating cbindgen into 3rd party build-systems. \
+                    This option is ignored if `--out` is missing."
+                )
         )
         .get_matches();
 
@@ -305,6 +323,9 @@ fn main() {
             if matches.is_present("verify") && changed {
                 error!("Bindings changed: {}", file);
                 std::process::exit(2);
+            }
+            if let Some(depfile) = matches.value_of("depfile") {
+                bindings.generate_depfile(file, depfile)
             }
         }
         _ => {

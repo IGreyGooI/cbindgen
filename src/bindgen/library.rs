@@ -3,6 +3,7 @@
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use crate::bindgen::bindings::Bindings;
 use crate::bindgen::config::{Config, Language, SortKey};
@@ -25,6 +26,7 @@ pub struct Library {
     opaque_items: ItemMap<OpaqueItem>,
     typedefs: ItemMap<Typedef>,
     functions: Vec<Function>,
+    source_files: Vec<PathBuf>,
 }
 
 impl Library {
@@ -39,6 +41,7 @@ impl Library {
         opaque_items: ItemMap<OpaqueItem>,
         typedefs: ItemMap<Typedef>,
         functions: Vec<Function>,
+        source_files: Vec<PathBuf>,
     ) -> Library {
         Library {
             config,
@@ -50,27 +53,11 @@ impl Library {
             opaque_items,
             typedefs,
             functions,
+            source_files,
         }
     }
 
     pub fn generate(mut self) -> Result<Bindings, Error> {
-        // If macro expansion is enabled, then cbindgen will attempt to build the crate
-        // and will run its build script which may run cbindgen again. That second run may start
-        // infinite recursion, or overwrite previously written files with bindings.
-        // So if we are called recursively, we are skipping the whole generation
-        // and produce "noop" bindings that won't be able to overwrite anything.
-        if std::env::var("_CBINDGEN_IS_RUNNING").is_ok() {
-            return Ok(Bindings::new(
-                self.config,
-                Default::default(),
-                Default::default(),
-                Default::default(),
-                Default::default(),
-                Default::default(),
-                true,
-            ));
-        }
-
         self.transfer_annotations();
         self.simplify_standard_types();
 
@@ -147,10 +134,12 @@ impl Library {
         Ok(Bindings::new(
             self.config,
             self.structs,
+            self.typedefs,
             constants,
             globals,
             items,
             functions,
+            self.source_files,
             false,
         ))
     }

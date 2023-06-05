@@ -10,28 +10,28 @@
 struct StyleAlignFlags {
   uint8_t bits;
 
-  explicit operator bool() const {
+  constexpr explicit operator bool() const {
     return !!bits;
   }
-  StyleAlignFlags operator~() const {
-    return {static_cast<decltype(bits)>(~bits)};
+  constexpr StyleAlignFlags operator~() const {
+    return StyleAlignFlags { static_cast<decltype(bits)>(~bits) };
   }
-  StyleAlignFlags operator|(const StyleAlignFlags& other) const {
-    return {static_cast<decltype(bits)>(this->bits | other.bits)};
+  constexpr StyleAlignFlags operator|(const StyleAlignFlags& other) const {
+    return StyleAlignFlags { static_cast<decltype(bits)>(this->bits | other.bits) };
   }
   StyleAlignFlags& operator|=(const StyleAlignFlags& other) {
     *this = (*this | other);
     return *this;
   }
-  StyleAlignFlags operator&(const StyleAlignFlags& other) const {
-    return {static_cast<decltype(bits)>(this->bits & other.bits)};
+  constexpr StyleAlignFlags operator&(const StyleAlignFlags& other) const {
+    return StyleAlignFlags { static_cast<decltype(bits)>(this->bits & other.bits) };
   }
   StyleAlignFlags& operator&=(const StyleAlignFlags& other) {
     *this = (*this & other);
     return *this;
   }
-  StyleAlignFlags operator^(const StyleAlignFlags& other) const {
-    return {static_cast<decltype(bits)>(this->bits ^ other.bits)};
+  constexpr StyleAlignFlags operator^(const StyleAlignFlags& other) const {
+    return StyleAlignFlags { static_cast<decltype(bits)>(this->bits ^ other.bits) };
   }
   StyleAlignFlags& operator^=(const StyleAlignFlags& other) {
     *this = (*this ^ other);

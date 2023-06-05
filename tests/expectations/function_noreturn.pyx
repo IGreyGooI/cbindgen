@@ -14,6 +14,9 @@ cdef extern from *:
 
 cdef extern from *:
 
+  ctypedef struct Example:
+    void (*f)(uintptr_t, uintptr_t);
+
   void loop_forever();
 
-  uint8_t normal_return();
+  uint8_t normal_return(Example arg, void (*other)(uint8_t));
