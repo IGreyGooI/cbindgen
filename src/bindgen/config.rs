@@ -350,6 +350,7 @@ pub struct ExportConfig {
     pub renaming_overrides_prefixing: bool,
     /// Mangling configuration.
     pub mangle: MangleConfig,
+    pub include_all_compatible_data_types: bool,
 }
 
 /// Mangling-specific configuration.

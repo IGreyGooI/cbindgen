@@ -100,6 +100,18 @@ impl Library {
                 }
             }
         }
+        
+        if self.config.export.include_all_compatible_data_types {
+            self.enums.for_all_items(|enum_item| {
+                enum_item.add_dependencies(&self, &mut dependencies);
+            });
+            self.structs.for_all_items(|struct_item| {
+                struct_item.add_dependencies(&self, &mut dependencies);
+            });
+            self.unions.for_all_items(|union_item| {
+                union_item.add_dependencies(&self, &mut dependencies);
+            });
+        }
 
         dependencies.sort();
 
